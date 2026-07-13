@@ -1,0 +1,68 @@
+version: 2
+
+models:
+  - name: fact_earthquakes
+    description: >
+      Primary fact table for earthquake analysis. One row per earthquake event with
+      all cleaned, typed, and classified columns from the intermediate layer.
+      Materialised as a Postgres table for query performance.
+    columns:
+      - name: id
+        description: "Unique USGS earthquake identifier."
+        tests:
+          - not_null
+          - unique
+      - name: magnitude
+        description: "Earthquake magnitude."
+        tests:
+          - not_null
+      - name: occurred_at
+        description: "Event origin time in UTC."
+        tests:
+          - not_null
+      - name: magnitude_class
+        description: "Magnitude classification bucket (minor/light/moderate/strong/major/great)."
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['minor', 'light', 'moderate', 'strong', 'major', 'great']
+      - name: depth_class
+        description: "Depth classification (shallow/intermediate/deep)."
+        tests:
+          - not_null
+      - name: is_tsunami_related
+        description: "Whether a tsunami warning was issued."
+        tests:
+          - not_null
+
+  - name: mart_daily_counts
+    description: >
+      Daily earthquake counts and magnitude stats grouped by magnitude_class.
+      Useful for visualising activity trends over time.
+    columns:
+      - name: occurred_date
+        description: "Day of the earthquakes (UTC)."
+        tests:
+          - not_null
+      - name: magnitude_class
+        description: "Magnitude class bucket."
+        tests:
+          - not_null
+      - name: earthquake_count
+        description: "Number of earthquakes in this day / class combination."
+        tests:
+          - not_null
+
+  - name: mart_regional_stats
+    description: >
+      Per-region aggregated statistics: total earthquakes, average magnitude,
+      depth, tsunami events, major-plus count, and active day count.
+    columns:
+      - name: region
+        description: "Geographic region extracted from the USGS place string."
+        tests:
+          - not_null
+      - name: total_earthquakes
+        description: "Total recorded earthquakes in this region."
+        tests:
+          - not_null

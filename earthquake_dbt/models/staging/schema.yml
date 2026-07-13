@@ -1,0 +1,40 @@
+version: 2
+
+models:
+  - name: stg_earthquakes
+    description: >
+      Cleaned earthquake events sourced from raw.earthquakes.
+      Filters to genuine earthquake events only (excludes quarry blasts, explosions, etc.),
+      casts epoch-millisecond timestamps to UTC timestamptz, and normalises text casing.
+    columns:
+      - name: id
+        description: "Unique USGS earthquake identifier."
+        tests:
+          - not_null
+          - unique
+      - name: magnitude
+        description: "Earthquake magnitude."
+        tests:
+          - not_null
+      - name: occurred_at
+        description: "Event origin time in UTC."
+        tests:
+          - not_null
+      - name: event_type
+        description: "Always 'earthquake' in this model (non-earthquake events are filtered out)."
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['earthquake']
+      - name: is_tsunami_related
+        description: "True if a tsunami warning was issued for this event."
+        tests:
+          - not_null
+      - name: latitude
+        description: "Epicenter latitude."
+        tests:
+          - not_null
+      - name: longitude
+        description: "Epicenter longitude."
+        tests:
+          - not_null

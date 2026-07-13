@@ -1,0 +1,44 @@
+version: 2
+
+sources:
+  - name: raw
+    description: "Raw data loaded by Airflow directly from the USGS Earthquake API."
+    database: earthquake_dw
+    schema: raw
+    tables:
+      - name: earthquakes
+        description: >
+          One row per earthquake event fetched from the USGS Earthquake Catalog API.
+          Updated by the daily Airflow pipeline via upsert (ON CONFLICT DO UPDATE).
+        columns:
+          - name: id
+            description: "Unique USGS event identifier (e.g. us7000abc1)."
+            tests:
+              - not_null
+              - unique
+          - name: magnitude
+            description: "Event magnitude (scale depends on mag_type)."
+          - name: place
+            description: "Human-readable location description (e.g. '15km NW of Parkfield, California')."
+          - name: time_epoch
+            description: "Event origin time as Unix milliseconds (UTC)."
+          - name: updated_epoch
+            description: "Last updated time as Unix milliseconds (UTC)."
+          - name: longitude
+            description: "Epicenter longitude in decimal degrees."
+          - name: latitude
+            description: "Epicenter latitude in decimal degrees."
+          - name: depth_km
+            description: "Hypocentral depth in kilometers."
+          - name: mag_type
+            description: "Magnitude type used (ml, md, mw, mb, etc.)."
+          - name: event_type
+            description: "Event classification (earthquake, quarry blast, explosion, etc.)."
+          - name: tsunami
+            description: "1 if a tsunami message was issued, 0 otherwise."
+          - name: significance
+            description: "USGS significance score (0–1000+); higher = more significant event."
+          - name: alert
+            description: "PAGER alert level (green/yellow/orange/red) if issued, else null."
+          - name: loaded_at
+            description: "Timestamp when this row was last loaded/updated by the pipeline."
