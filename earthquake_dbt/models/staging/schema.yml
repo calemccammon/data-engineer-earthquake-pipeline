@@ -5,7 +5,8 @@ models:
     description: >
       Cleaned earthquake events sourced from raw.earthquakes.
       Filters to genuine earthquake events only (excludes quarry blasts, explosions, etc.),
-      casts epoch-millisecond timestamps to UTC timestamptz, and normalises text casing.
+      converts epoch-millisecond timestamps to timestamps in UTC (without time zone),
+      and normalises text casing.
     columns:
       - name: id
         description: "Unique USGS earthquake identifier."

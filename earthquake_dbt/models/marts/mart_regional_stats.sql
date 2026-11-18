@@ -1,5 +1,6 @@
 -- Aggregate earthquake statistics by geographic region.
 -- Identifies earthquake hot-spots, average depths, and historical significance.
+-- major_plus_count counts events of magnitude 7.0 and above.
 with facts as (
 
     select * from {{ ref('fact_earthquakes') }}
@@ -20,4 +21,3 @@ select
     max(occurred_at)                                               as latest_recorded_at
 from facts
 group by region
-order by total_earthquakes desc

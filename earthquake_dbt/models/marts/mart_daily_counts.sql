@@ -17,4 +17,3 @@ select
     sum(case when is_tsunami_related then 1 else 0 end)        as tsunami_count
 from facts
 group by occurred_date, magnitude_class
-order by occurred_date desc, magnitude_class

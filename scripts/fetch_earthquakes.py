@@ -111,8 +111,13 @@ def run(start_time: str, end_time: str) -> int:
     features = fetch_earthquakes(start_time, end_time)
     rows = [parse_feature(f) for f in features]
 
-    with get_db_connection() as conn:
+    # psycopg2's connection context manager ends the transaction but leaves the
+    # connection open, so close it explicitly.
+    conn = get_db_connection()
+    try:
         count = upsert_earthquakes(conn, rows)
+    finally:
+        conn.close()
 
     logger.info("Upserted %d rows", count)
     return count
