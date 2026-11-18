@@ -14,5 +14,7 @@ VALUES
     ('us7000abcj', 5.1, '35km NE of Kathmandu, Nepal',       1704585600000, 1704589200000,   85.4512, 27.9234, 20.0, 'mw', 'earthquake', 0, 433, NULL,    'reviewed', 'us', 55, 0.678, 0.48,  88, 'M 5.1 - 35km NE of Kathmandu, Nepal'),
     ('us7000abck', 6.8, 'Off the coast of Oregon',           1704672000000, 1704675600000, -126.7890, 44.2345, 15.0, 'mw', 'earthquake', 0, 710, NULL,    'reviewed', 'us', 71, 0.892, 0.57,  62, 'M 6.8 - Off the coast of Oregon'),
     ('us7000abcl', 4.2, '8km SW of Mammoth Lakes, California',1704758400000, 1704762000000,-119.0234, 37.6012,  7.8, 'md', 'earthquake', 0, 276, NULL,    'reviewed', 'mb', 25, 0.067, 0.28, 198, 'M 4.2 - 8km SW of Mammoth Lakes, California'),
-    ('us7000abcm', 3.7, '20km W of Anchorage, Alaska',       1704844800000, 1704848400000, -150.4567, 61.2123, 55.2, 'ml', 'earthquake', 0, 212, NULL,    'reviewed', 'ak', 31, 0.412, 0.35, 178, 'M 3.7 - 20km W of Anchorage, Alaska')
+    ('us7000abcm', 3.7, '20km W of Anchorage, Alaska',       1704844800000, 1704848400000, -150.4567, 61.2123, 55.2, 'ml', 'earthquake', 0, 212, NULL,    'reviewed', 'ak', 31, 0.412, 0.35, 178, 'M 3.7 - 20km W of Anchorage, Alaska'),
+    -- No place: the region must fall back to 'Unknown' instead of null.
+    ('us7000abcn', 3.3, NULL,                                1704931200000, 1704934800000, -178.1234,-30.4567, 10.0, 'mb', 'earthquake', 0, 168, NULL,    'reviewed', 'us', 12, 2.345, 0.74, 140, 'M 3.3')
 ON CONFLICT (id) DO NOTHING;

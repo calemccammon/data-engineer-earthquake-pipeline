@@ -84,10 +84,7 @@ services:
       MB_DB_PASS: ${POSTGRES_PASSWORD:-postgres}
     ports:
       - "3000:3000"
-    volumes:
-      - metabase_data:/metabase-data
 
 volumes:
   postgres_data:
   airflow_logs:
-  metabase_data:

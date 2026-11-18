@@ -20,8 +20,7 @@ docker compose up --build -d
 ```
 
 `docker-compose.yml` reads `POSTGRES_PASSWORD` and `AIRFLOW_SECRET_KEY` from `.env`. The Airflow
-login is fixed at `admin` / `admin` in the Compose file. `AIRFLOW_ADMIN_PASSWORD` in
-`.env.example` is not read by anything.
+login is fixed at `admin` / `admin` in the Compose file.
 
 Once the `airflow` container is healthy, the services are available at:
 
@@ -61,7 +60,7 @@ FROM marts.mart_regional_stats
 ORDER BY total_earthquakes DESC
 LIMIT 20;
 
--- Daily counts of magnitude 5.0 and above
+-- Daily counts of magnitude 6.0 and above
 SELECT occurred_date, magnitude_class, earthquake_count
 FROM marts.mart_daily_counts
 WHERE magnitude_class IN ('strong', 'major', 'great')
@@ -166,15 +165,16 @@ source raw.earthquakes
 | `int_earthquakes_classified` | `intermediate` | view | Adds `magnitude_class`, `depth_class`, `region`, `occurred_date` and `occurred_hour`. |
 | `fact_earthquakes` | `marts` | table | All columns of the intermediate model, one row per event. |
 | `mart_daily_counts` | `marts` | table | Per day and magnitude class: event count, average, minimum and maximum magnitude, average depth, tsunami count. |
-| `mart_regional_stats` | `marts` | table | Per region: event count, average and maximum magnitude, average depth, count of `major` and `great` events, tsunami count, active days, first and latest event time. |
+| `mart_regional_stats` | `marts` | table | Per region: event count, average and maximum magnitude, average depth, count of `major` and `great` events (magnitude 7.0 and above), tsunami count, active days, first and latest event time. |
 
-The classification rules in `int_earthquakes_classified`:
+The classification rules in `int_earthquakes_classified` are macros in
+`earthquake_dbt/macros/classify.sql`:
 
 | Column | Rule |
 |---|---|
-| `magnitude_class` | below 2.5 `minor`, below 4.0 `light`, below 5.0 `moderate`, below 6.0 `strong`, below 7.0 `major`, otherwise `great` |
+| `magnitude_class` | below 4.0 `minor`, below 5.0 `light`, below 6.0 `moderate`, below 7.0 `strong`, below 8.0 `major`, otherwise `great` |
 | `depth_class` | below 70 km `shallow`, below 300 km `intermediate`, otherwise `deep` |
-| `region` | The text after the last comma in `place`, or the whole string when there is no comma |
+| `region` | The text after the last comma in `place`, or the whole string when there is no comma. `Unknown` when `place` is missing or blank. |
 
 ## Design decisions
 
@@ -192,7 +192,9 @@ The classification rules in `int_earthquakes_classified`:
   ad hoc queries read are materialised.
 - **Metabase state in Postgres.** Metabase is configured to keep its application database in the
   `metabase` Postgres database instead of its default embedded H2 file.
-- **CI runs against seed rows.** The workflows load ten fixed rows from
+- **Classification rules as macros.** The magnitude, depth and region expressions are macros so
+  that the singular tests can call the same code on literal boundary values.
+- **CI runs against seed rows.** The workflows load eleven fixed rows from
   `scripts/seed_test_data.sql` into a Postgres service container, so CI does not call the USGS
   API. `scripts/init_ci.sql` creates the raw table without the Airflow and Metabase databases.
 
@@ -201,32 +203,33 @@ The classification rules in `int_earthquakes_classified`:
 There are two kinds of tests, and the `dbt Tests` workflow runs both on every push and pull
 request to `main`.
 
-**Python unit tests.** `tests/test_fetch_earthquakes.py` has 18 pytest cases for the loader:
+**Python unit tests.** `tests/test_fetch_earthquakes.py` has 22 pytest cases for the loader:
 field mapping and missing-value handling in `parse_feature`, the request parameters and error
-propagation in `fetch_earthquakes`, and the return value and commit in `upsert_earthquakes`.
-HTTP and database calls are mocked, so no services are needed:
+propagation in `fetch_earthquakes`, the generated upsert statement and its values in
+`upsert_earthquakes`, and the closing of the connection in `run`. HTTP and database calls are
+mocked, so no services are needed:
 
 ```bash
 pip install pytest requests psycopg2-binary
 pytest tests/
 ```
 
-The upsert statement itself is not executed by these tests, because `execute_values` is patched
-out.
+These tests check the text of the upsert statement. They do not execute it against a database.
 
-**dbt tests.** The project defines 36 dbt tests: 32 generic tests (`not_null`, `unique`,
-`accepted_values`) declared in the `schema.yml` and `sources.yml` files, and four singular tests
+**dbt tests.** The project defines 38 dbt tests: 33 generic tests (`not_null`, `unique`,
+`accepted_values`) declared in the `schema.yml` and `sources.yml` files, and five singular tests
 in `earthquake_dbt/tests/`:
 
 | Test | Fails when |
 |---|---|
 | `assert_no_future_timestamps` | `occurred_at` is more than one hour in the future |
 | `assert_valid_magnitude_range` | magnitude is below -2 or above 10 |
-| `assert_magnitude_class_matches_magnitude` | `magnitude_class` disagrees with the thresholds above |
-| `assert_depth_class_matches_depth` | `depth_class` disagrees with the thresholds above |
+| `assert_magnitude_class_boundaries` | the `magnitude_class` macro returns the wrong class for a literal value on either side of a threshold (3.99 and 4.0, 7.99 and 8.0, and so on) |
+| `assert_depth_class_boundaries` | the `depth_class` macro returns the wrong class at 69.9, 70, 299.9 or 300 km |
+| `assert_region_from_place` | the `region_from_place` macro returns the wrong region for a literal place string, including an empty and a null one |
 
 In the DAG, a failing dbt test fails the `dbt_test` task and so the run. In CI the same tests
-run against the ten seed rows.
+run against the eleven seed rows, one of which has no `place`.
 
 A second workflow, `Deploy dbt Docs`, rebuilds the docs site and deploys it to GitHub Pages when
 a push to `main` changes `earthquake_dbt/` or the workflow file. To use it in a fork, set
@@ -247,9 +250,6 @@ Metabase's table browser on `raw.earthquakes` after a pipeline run:
   far below the cap, but a long interval passed to the script directly could be truncated.
 - A run only fetches events whose origin time falls in its interval. Revisions that USGS makes
   to an event later are picked up only if that interval is run again.
-- The magnitude class labels are this project's own buckets and do not line up with the usual
-  USGS names, where 7.0 to 7.9 is "major" and 8.0 and above is "great". The `minor` class
-  (below 2.5) stays empty because the loader requests magnitude 2.5 and above.
 - `region` is a string split, so the same area can appear under more than one name
   ("California" and "CA"), and places with no comma become their own region.
 - CI installs dbt without a version pin, so it can run a newer dbt than the 1.9.0 pinned in the

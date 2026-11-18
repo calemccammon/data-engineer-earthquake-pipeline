@@ -11,7 +11,7 @@ cleaned as (
         magnitude,
         place,
         time_epoch,
-        -- Convert USGS epoch-milliseconds to a proper UTC timestamp
+        -- Convert USGS epoch-milliseconds to a timestamp (without time zone) in UTC
         to_timestamp(time_epoch / 1000.0) at time zone 'UTC'    as occurred_at,
         to_timestamp(updated_epoch / 1000.0) at time zone 'UTC' as updated_at,
         longitude,

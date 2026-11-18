@@ -1,16 +1,16 @@
 """
 Unit tests for scripts/fetch_earthquakes.py
 
-Tests cover parse_feature() edge cases and upsert SQL generation.
+Tests cover parse_feature() edge cases, the USGS request, the generated upsert SQL and run().
 No database or network connections required — all external calls are mocked.
 """
 import sys
 import os
 import pytest
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
-from fetch_earthquakes import parse_feature, upsert_earthquakes, fetch_earthquakes
+from fetch_earthquakes import parse_feature, upsert_earthquakes, fetch_earthquakes, run
 
 
 # ---------------------------------------------------------------------------
@@ -210,3 +210,57 @@ class TestUpsertEarthquakes:
         with patch("fetch_earthquakes.execute_values"):
             upsert_earthquakes(conn, [parse_feature(make_feature())])
         conn.commit.assert_called_once()
+
+    def test_sql_upserts_on_id_and_updates_every_other_column(self):
+        conn = MagicMock()
+        row = parse_feature(make_feature())
+        with patch("fetch_earthquakes.execute_values") as mock_execute:
+            upsert_earthquakes(conn, [row])
+        mock_execute.assert_called_once()
+        sql = " ".join(mock_execute.call_args[0][1].split())
+        columns = list(row.keys())
+        assert f"INSERT INTO raw.earthquakes ({', '.join(columns)})" in sql
+        assert "ON CONFLICT (id) DO UPDATE SET" in sql
+        for col in columns:
+            if col != "id":
+                assert f"{col} = EXCLUDED.{col}" in sql
+        assert " id = EXCLUDED.id" not in sql
+        assert "loaded_at = NOW()" in sql
+
+    def test_values_follow_the_column_order(self):
+        conn = MagicMock()
+        rows = [parse_feature(make_feature()), parse_feature(make_feature(id="us7000abce", mag=6.1))]
+        with patch("fetch_earthquakes.execute_values") as mock_execute:
+            upsert_earthquakes(conn, rows)
+        values = mock_execute.call_args[0][2]
+        assert values == [list(row.values()) for row in rows]
+        assert values[1][0] == "us7000abce"
+        assert values[1][1] == 6.1
+
+
+# ---------------------------------------------------------------------------
+# run tests (mocked HTTP and DB)
+# ---------------------------------------------------------------------------
+
+class TestRun:
+
+    def test_upserts_parsed_rows_and_closes_connection(self):
+        conn = MagicMock()
+        features = [make_feature(), make_feature(id="us7000abce")]
+        with patch("fetch_earthquakes.fetch_earthquakes", return_value=features), \
+             patch("fetch_earthquakes.get_db_connection", return_value=conn), \
+             patch("fetch_earthquakes.execute_values") as mock_execute:
+            result = run("2024-01-01", "2024-01-02")
+        assert result == 2
+        assert len(mock_execute.call_args[0][2]) == 2
+        conn.close.assert_called_once()
+
+    def test_closes_connection_when_upsert_fails(self):
+        conn = MagicMock()
+        with patch("fetch_earthquakes.fetch_earthquakes", return_value=[make_feature()]), \
+             patch("fetch_earthquakes.get_db_connection", return_value=conn), \
+             patch("fetch_earthquakes.execute_values", side_effect=RuntimeError("insert failed")):
+            with pytest.raises(RuntimeError, match="insert failed"):
+                run("2024-01-01", "2024-01-02")
+        conn.close.assert_called_once()
+        conn.commit.assert_not_called()

@@ -34,7 +34,7 @@ DEFAULT_ARGS = {
     start_date=datetime(2024, 1, 1),
     catchup=False,
     default_args=DEFAULT_ARGS,
-    tags=["earthquakes", "usgs", "dbt", "portfolio"],
+    tags=["earthquakes", "usgs", "dbt"],
 )
 def earthquake_pipeline():
 

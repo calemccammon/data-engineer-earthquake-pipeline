@@ -14,7 +14,7 @@ models:
           - not_null
           - unique
       - name: magnitude_class
-        description: "Magnitude classification bucket."
+        description: "Magnitude class: minor (below 4.0), light, moderate, strong, major, great (8.0 and above)."
         tests:
           - not_null
           - accepted_values:
@@ -26,7 +26,9 @@ models:
           - accepted_values:
               values: ['shallow', 'intermediate', 'deep']
       - name: region
-        description: "Broadest region token extracted from the USGS place string."
+        description: "Text after the last comma of the USGS place string, or 'Unknown' when place is missing."
+        tests:
+          - not_null
       - name: occurred_date
         description: "Event date truncated to day (UTC)."
         tests:

@@ -1,5 +1,5 @@
 -- CI-only Postgres setup: creates the raw schema and earthquakes table.
--- The full init.sh also creates the Airflow database, which is not needed in CI.
+-- The full init.sql also creates the Airflow and Metabase databases, which are not needed in CI.
 CREATE SCHEMA IF NOT EXISTS raw;
 
 CREATE TABLE IF NOT EXISTS raw.earthquakes (
