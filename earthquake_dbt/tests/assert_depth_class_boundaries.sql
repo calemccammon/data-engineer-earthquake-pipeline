@@ -1,6 +1,6 @@
 -- Singular test: the depth_class macro used by int_earthquakes_classified must
--- return the expected class on each side of every threshold. Returns the cases
--- where it does not.
+-- return the expected class on each side of every threshold, and 'unknown' for
+-- an event with no depth. Returns the cases where it does not.
 with cases (depth_km, expected_class) as (
 
     values
@@ -9,7 +9,8 @@ with cases (depth_km, expected_class) as (
         (70.0,  'intermediate'),
         (299.9, 'intermediate'),
         (300.0, 'deep'),
-        (650.0, 'deep')
+        (650.0, 'deep'),
+        (null,  'unknown')
 
 )
 

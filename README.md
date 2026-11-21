@@ -173,7 +173,7 @@ The classification rules in `int_earthquakes_classified` are macros in
 | Column | Rule |
 |---|---|
 | `magnitude_class` | below 4.0 `minor`, below 5.0 `light`, below 6.0 `moderate`, below 7.0 `strong`, below 8.0 `major`, otherwise `great` |
-| `depth_class` | below 70 km `shallow`, below 300 km `intermediate`, otherwise `deep` |
+| `depth_class` | below 70 km `shallow`, below 300 km `intermediate`, otherwise `deep`. `unknown` when USGS reports no depth. |
 | `region` | The text after the last comma in `place`, or the whole string when there is no comma. `Unknown` when `place` is missing or blank. |
 
 ## Design decisions
@@ -225,7 +225,7 @@ in `earthquake_dbt/tests/`:
 | `assert_no_future_timestamps` | `occurred_at` is more than one hour in the future |
 | `assert_valid_magnitude_range` | magnitude is below -2 or above 10 |
 | `assert_magnitude_class_boundaries` | the `magnitude_class` macro returns the wrong class for a literal value on either side of a threshold (3.99 and 4.0, 7.99 and 8.0, and so on) |
-| `assert_depth_class_boundaries` | the `depth_class` macro returns the wrong class at 69.9, 70, 299.9 or 300 km |
+| `assert_depth_class_boundaries` | the `depth_class` macro returns the wrong class at 69.9, 70, 299.9 or 300 km, or for a missing depth |
 | `assert_region_from_place` | the `region_from_place` macro returns the wrong region for a literal place string, including an empty and a null one |
 
 In the DAG, a failing dbt test fails the `dbt_test` task and so the run. In CI the same tests

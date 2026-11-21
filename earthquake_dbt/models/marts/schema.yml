@@ -27,7 +27,7 @@ models:
           - accepted_values:
               values: ['minor', 'light', 'moderate', 'strong', 'major', 'great']
       - name: depth_class
-        description: "Depth classification (shallow/intermediate/deep)."
+        description: "Depth classification (shallow/intermediate/deep, or unknown when USGS gives no depth)."
         tests:
           - not_null
       - name: is_tsunami_related
