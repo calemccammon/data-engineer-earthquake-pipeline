@@ -17,8 +17,12 @@
 {%- endmacro %}
 
 {% macro depth_class(depth_km) -%}
-    {#- Focal depth classes: shallow below 70 km, intermediate below 300 km, deep beyond. -#}
+    {#- Focal depth classes: shallow below 70 km, intermediate below 300 km, deep beyond.
+        USGS does not report a depth for every event. A missing depth compares as
+        neither below 70 nor below 300, so without its own branch it would fall
+        through to 'deep'. -#}
     case
+        when {{ depth_km }} is null then 'unknown'
         when {{ depth_km }} < 70  then 'shallow'
         when {{ depth_km }} < 300 then 'intermediate'
         else                           'deep'
