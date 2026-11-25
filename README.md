@@ -5,8 +5,17 @@ above from the USGS Earthquake Catalog API, upserts them into PostgreSQL, builds
 intermediate and mart models with dbt, and runs dbt tests against the result. Metabase is
 included in the Docker Compose stack for browsing the tables.
 
+Loads are idempotent: each run upserts on the USGS event id, so Airflow retries and backfills
+update rows instead of duplicating them. The magnitude, depth and region rules are dbt macros, so
+singular dbt tests can check them on literal values: either side of each magnitude and depth
+threshold, and sample place strings. CI runs the
+loader's unit tests, then `dbt run` and `dbt test` against fixed seed rows in a Postgres service
+container, without calling USGS.
+
 The dbt docs site, with the model lineage graph, is published to GitHub Pages:
 https://calemccammon.github.io/data-engineer-earthquake-pipeline/
+
+![Metabase table browser showing raw.earthquakes after a pipeline run](docs/metabase-earthquakes.png)
 
 ## Running it
 
@@ -124,8 +133,7 @@ instance holds three databases: `earthquake_dw` for the data, `airflow` for Airf
 `https://earthquake.usgs.gov/fdsnws/event/1/query` with `format=geojson`, the interval's start
 and end times, `minmagnitude=2.5` and `limit=20000`. Each GeoJSON feature is flattened into a
 row and written with a single `INSERT ... ON CONFLICT (id) DO UPDATE` statement that overwrites
-every column and sets `loaded_at` to the current time. Re-running an interval therefore updates
-the existing rows instead of duplicating them.
+every column and sets `loaded_at` to the current time.
 
 The loader stores every event type the API returns. Filtering to earthquakes happens in the
 staging model.
@@ -194,7 +202,7 @@ The classification rules in `int_earthquakes_classified` are macros in
   `metabase` Postgres database instead of its default embedded H2 file.
 - **Classification rules as macros.** The magnitude, depth and region expressions are macros so
   that the singular tests can call the same code on literal boundary values.
-- **CI runs against seed rows.** The workflows load eleven fixed rows from
+- **CI runs against seed rows.** The workflows load a small set of fixed rows from
   `scripts/seed_test_data.sql` into a Postgres service container, so CI does not call the USGS
   API. `scripts/init_ci.sql` creates the raw table without the Airflow and Metabase databases.
 
@@ -203,7 +211,7 @@ The classification rules in `int_earthquakes_classified` are macros in
 There are two kinds of tests, and the `dbt Tests` workflow runs both on every push and pull
 request to `main`.
 
-**Python unit tests.** `tests/test_fetch_earthquakes.py` has 22 pytest cases for the loader:
+**Python unit tests.** `tests/test_fetch_earthquakes.py` covers the loader:
 field mapping and missing-value handling in `parse_feature`, the request parameters and error
 propagation in `fetch_earthquakes`, the generated upsert statement and its values in
 `upsert_earthquakes`, and the closing of the connection in `run`. HTTP and database calls are
@@ -216,9 +224,8 @@ pytest tests/
 
 These tests check the text of the upsert statement. They do not execute it against a database.
 
-**dbt tests.** The project defines 38 dbt tests: 33 generic tests (`not_null`, `unique`,
-`accepted_values`) declared in the `schema.yml` and `sources.yml` files, and five singular tests
-in `earthquake_dbt/tests/`:
+**dbt tests.** Generic tests (`not_null`, `unique`, `accepted_values`) are declared in the
+`schema.yml` and `sources.yml` files, and singular tests are in `earthquake_dbt/tests/`:
 
 | Test | Fails when |
 |---|---|
@@ -229,17 +236,11 @@ in `earthquake_dbt/tests/`:
 | `assert_region_from_place` | the `region_from_place` macro returns the wrong region for a literal place string, including an empty and a null one |
 
 In the DAG, a failing dbt test fails the `dbt_test` task and so the run. In CI the same tests
-run against the eleven seed rows, one of which has no `place`.
+run against the seed rows, one of which has no `place`.
 
 A second workflow, `Deploy dbt Docs`, rebuilds the docs site and deploys it to GitHub Pages when
 a push to `main` changes `earthquake_dbt/` or the workflow file. To use it in a fork, set
 **Settings → Pages → Source** to **GitHub Actions**.
-
-## Screenshot
-
-Metabase's table browser on `raw.earthquakes` after a pipeline run:
-
-![Metabase table browser showing raw.earthquakes](docs/metabase-earthquakes.png)
 
 ## Limitations
 
